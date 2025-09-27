@@ -1,0 +1,55 @@
+name: onlinebookstore-infra
+
+services:
+  bookstore-ui:
+    container_name: frontend
+    build: ./bookstore-ui
+    ports: 
+      - "80:5173"
+    volumes:
+      - /app/node_modules
+    stdin_open: true
+    tty: true
+  
+  catalog-service:
+    container_name: catalog
+    build: ./catalog-service
+    # ports:
+    #   - "8001:8001"
+    stdin_open: true
+    tty: true
+
+  orders-service:
+    container_name: orders
+    build: ./orders-service
+    # ports:
+    #   - "8002:8002"
+    environment:
+      CATALOG_URL: http://catalog:8001
+    stdin_open: true
+    tty: true
+
+  payments-service:
+    container_name: payments
+    build: ./payments-service
+    # ports:
+    #   - "8003:8003"
+    stdin_open: true
+    tty: true
+  
+  api-gateway:
+    container_name: api-gateway
+    build: ./api-gateway
+    ports:
+      - "8000:8000"
+    environment:
+      BASE_PATH: "/"
+      CATALOG_URL: http://catalog:8001
+      ORDERS_URL: http://orders:8002
+      PAYMENTS_URL: http://payments:8003
+    depends_on:
+      - catalog-service
+      - orders-service
+      - payments-service
+    stdin_open: true
+    tty: true
