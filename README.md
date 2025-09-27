@@ -27,7 +27,7 @@ All services are containerized and orchestrated using Docker Compose.
 1. **Prerequisites**: Docker and Docker Compose installed.
 2. **Start all services**:
    ```sh
-   docker-compose up --build
+   docker compose up --build -d
    ```
 3. **Access the UI**: Open [http://localhost](http://localhost) in your browser.
 
