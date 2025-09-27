@@ -27,6 +27,8 @@ app.add_middleware(
 def path(p: str) -> str:
     return f"{BASE_PATH}{p}"
 
+
+
 @app.get(path("/catalog/books"))
 async def list_books():
     async with httpx.AsyncClient(timeout=5.0) as client:
@@ -36,6 +38,25 @@ async def list_books():
         except httpx.HTTPError:
             # let this be an exception so upstream failures are visible (not swallowed)
             raise HTTPException(status_code=502, detail={"message":"Catalog unreachable"})
+
+@app.get(path("/orders"))
+async def list_orders(page: int = 1, per_page: int = 10):
+    params = {"page": page, "per_page": per_page}
+    async with httpx.AsyncClient(timeout=5.0) as client:
+        try:
+            r = await client.get(f"{ORDERS_URL}/orders", params=params, headers={"Accept":"application/json"})
+            return JSONResponse(status_code=r.status_code, content=r.json())
+        except httpx.HTTPError:
+            raise HTTPException(status_code=502, detail={"message":"Orders unreachable"})
+
+@app.get(path("/orders/{order_id}"))
+async def get_order(order_id: int):
+    async with httpx.AsyncClient(timeout=5.0) as client:
+        try:
+            r = await client.get(f"{ORDERS_URL}/orders/{order_id}", headers={"Accept":"application/json"})
+            return JSONResponse(status_code=r.status_code, content=r.json())
+        except httpx.HTTPError:
+            raise HTTPException(status_code=502, detail={"message":"Orders unreachable"})
 
 @app.post(path("/orders"))
 async def create_order(req: Request):
@@ -49,6 +70,16 @@ async def create_order(req: Request):
             return JSONResponse(status_code=r.status_code, content={"message":"Unexpected response"})
         except httpx.HTTPError:
             raise HTTPException(status_code=502, detail={"message":"Orders unreachable"})
+
+@app.get(path("/payments"))
+async def list_payments(page_no: int = 1, per_page: int = 10):
+    params = {"page_no": page_no, "per_page": per_page}
+    async with httpx.AsyncClient(timeout=5.0) as client:
+        try:
+            r = await client.get(f"{PAYMENTS_URL}/payments", params=params, headers={"Accept":"application/json"})
+            return JSONResponse(status_code=r.status_code, content=r.json())
+        except httpx.HTTPError:
+            raise HTTPException(status_code=502, detail={"message":"Payments unreachable"})
 
 @app.post(path("/payments"))
 @circuit(name='payment_circuit', failure_threshold=3, recovery_timeout=1)
@@ -78,7 +109,15 @@ async def pay_for_order(req: Request):
 
 @app.get("/healthz")
 async def healthz():
-    return {"ok": True, "routes": {"books": path("/catalog/books"), "orders": path("/orders"), "payments": path("/payments")}}
+    return {
+        "ok": True, 
+        "routes": {
+            "books": path("/catalog/books"), 
+            "orders": path("/orders"), 
+            "order_detail": path("/orders/{order_id}"),
+            "payments": path("/payments")
+        }
+    }
 
 @app.exception_handler(CircuitBreakerError)
 async def circuit_open_handler(request: Request, exc: CircuitBreakerError):

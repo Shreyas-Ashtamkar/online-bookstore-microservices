@@ -1,9 +1,10 @@
 import os
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Query
 from pydantic import BaseModel, Field
 from typing import List
 
 import httpx
+from datetime import datetime
 
 app = FastAPI(title="Order Service")
 
@@ -30,6 +31,13 @@ async def fetch_catalog_prices():
         r.raise_for_status()
         return r.json()
 
+@app.get("/orders", response_model=List[dict])
+async def list_orders(page: int = Query(1, ge=1), per_page: int = Query(10, ge=1)):
+    orders = list(ORDERS.values())
+    start = (page - 1) * per_page
+    end = start + per_page
+    return orders[start:end]
+
 @app.post("/orders", response_model=CreateOrderOut)
 async def create_order(payload: CreateOrderIn):
     global NEXT_ID
@@ -49,7 +57,12 @@ async def create_order(payload: CreateOrderIn):
 
     oid = NEXT_ID
     NEXT_ID += 1
-    ORDERS[oid] = {"id": oid, "items": [it.model_dump(by_alias=True) for it in payload.items], "total": round(total, 2)}
+    ORDERS[oid] = {
+        "id": oid,
+        "items": [it.model_dump(by_alias=True) for it in payload.items],
+        "total": round(total, 2),
+        "created_at": datetime.utcnow().isoformat() + "Z"
+    }
     return {"orderId": oid, "total": round(total, 2)}
 
 @app.get("/orders/{order_id}")
